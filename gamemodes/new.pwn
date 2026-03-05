@@ -1,698 +1,790 @@
-//Especially for those who are just beginning to study the pawn! • by lexjusto ;)
-//
-@___If_u_can_read_this_u_r_nerd();
-@___If_u_can_read_this_u_r_nerd()
-{
-    #emit    stack    0x7FFFFFFF
-    #emit    inc.s    cellmax
-    static const ___[][] = {"this piece of code (and only he) by Daniel_Cortez"};
-    #emit    retn
-    #emit    load.s.pri    ___
-    #emit    proc
-    #emit    proc
-    #emit    fill    cellmax
-    #emit    proc
-    #emit    stor.alt    ___
-    #emit    strb.i    2
-    #emit    switch    4
-    #emit    retn
-L1:
-    #emit    jump    L1
-    #emit    zero    cellmin
-}
-/*by |lexjusto|*/
+// Westfield RolePlay Gamemode
+// Modular structure with #include based components
+// open.mp compatible
+
+// ============================================================================
+// LIBRARY INCLUDES
+// ============================================================================
 
 #include <a_samp>
 #include <streamer>
 #include <a_mysql>
 #include <zcmd>
+#define SSCANF_NO_NICE_FEATURES
 #include <sscanf2>
 #include <colors>
 
-#define MYSQL_HOST     			"127.0.0.1" // MYSQL HOSTNAME (DOMAIN\IP)
-#define MYSQL_USER     			"root" //MYSQL USER
-#define MYSQL_DB 				"astawnew" // MYSQL DATABASE
-#define MYSQL_PASS 				"root" //MYSQL PASSWORD FOR USER
-#define MYSQL_LOG_TYPE          LOG_ALL // LOG_NONE && LOG_ERROR && LOG_WARNING && LOG_DEBUG && LOG_ALL
+// ============================================================================
+// MODULE INCLUDES
+// ============================================================================
 
-#define TABLE_ACCOUNTS          "accounts" // ACCOUNTS TABLE
-//
-#define GAMEMODE_HOSTNAME       "Simple Gamemode (by lexjusto)" //HOSTNAME
-#define GAMEMODE_NAME          	"Simple-GM" //GAMEMODE NAME
-#define SUPPORT_EMAIL           "test@sa-mp.com"//SUPPORT EMAIL
-//
-#undef MAX_PLAYERS
-#define MAX_PLAYERS 50 //Number of players specified in the server.cfg
-//
-#define INVALID_PLAYER_DATA 	-1
-#define MAX_EMAIL_LEN    		64
-#define MAX_PASSWORD_LEN     	36
-#define MAX_IPADRESS_LEN      	40
-#define MAX_CHATMESS_LEN        144
-#define PlayerName(%1) 			PlayerInfo[%1][pName]
-#define BYTES_PER_CELL 			(cellbits / 8)
-#define publics:%0(%1)          forward %0(%1); public %0(%1)
-#define HidePlayerDialog(%1) 	ShowPlayerDialog(%1,-1,0,"","","","")
-//
-#define COLOR_FADE1 			0xE6E6E6E6
-#define COLOR_FADE2 			0xC8C8C8C8
-#define COLOR_FADE3 			0xAAAAAAAA
-#define COLOR_FADE4 			0x8C8C8C8C
-#define COLOR_FADE5 			0x6E6E6E6E
-//
+#include "modules/defines.pwn"
+#include "modules/utils.pwn"
+#include "modules/database.pwn"
+#include "modules/hud.pwn"
+#include "modules/spawn.pwn"
+#include "modules/hunger.pwn"
+#include "modules/account.pwn"
+#include "modules/inventory.pwn"
+#include "modules/phone.pwn"
+#include "modules/phone_wa.pwn"
+#include "modules/phone_twitter.pwn"
+#include "modules/phone_market.pwn"
+#include "modules/bank.pwn"
+#include "modules/phone_bank.pwn"
+#include "modules/phone_gps.pwn"
+#include "modules/phone_settings.pwn"
+#include "modules/phone_notepad.pwn"
+#include "modules/phone_call.pwn"
+#include "modules/wallet.pwn"
+#include "modules/admin.pwn"
+#include "modules/flymode.pwn"
+#include "modules/ktp_service.pwn"
+#include "modules/interiors.pwn"
+#include "modules/sim_service.pwn"
+#include "modules/gofood.pwn"
+#include "modules/factions.pwn"
+#include "modules/jobs.pwn"
+#include "modules/property.pwn"
+#include "modules/locations.pwn"
+#include "modules/ht_radio.pwn"
+#include "modules/hospital_mapping.pwn"
+#include "modules/commands.pwn"
 
-main(){}
+// Stack+heap safety — MUST be after all includes to ensure final value
+#pragma dynamic 65536
 
-new MySQL_C1;
-new query[1024];
-new RolePlayChat = 1;
+// ============================================================================
+// GAMEMODE INIT / EXIT
+// ============================================================================
 
-enum dZone
-{
-	zSpawnFAQ,
-};
-new DynamicZone[dZone];
-
-enum pInfo
-{
-	//register info
-	pID,
-    pName[MAX_PLAYER_NAME],
-    pEmail[MAX_EMAIL_LEN],
-    pRegDate,
-    pRegIP[MAX_IPADRESS_LEN],
-	pLastDate,
-    pLastIP[MAX_IPADRESS_LEN],
-    pRegistered,
-    pInvited[MAX_PLAYER_NAME],
-    pGender,
-    //
-    bool:pLogged,
-	pLevel,
-	pMoney,
-	pSkin,
-};
-new PlayerInfo[MAX_PLAYERS][pInfo];
-
-enum tInfo
-{
-    pRegPassword[MAX_PASSWORD_LEN],
-    pRegEmail[MAX_EMAIL_LEN],
-    pRegInvited[MAX_PLAYER_NAME],
-    pRegGender,
-    pRegSkin,
-};
-new TempInfo[MAX_PLAYERS][tInfo];
-
-//DIALOG`S
-enum
-{
-	dNull,
-	//
-	dRegister,
-	dRegisterEmail,
-	dRegisterGender,
-	dRegisterGender1,
-	dRegisterSkin,
-	dRegisterInvited,
-	dRegisterEnd,
-	dLogin,
-	//
-}
-
-new Float:NewPlayerSpawns[][] =
-{
-    //{x, y, z, angle},
-    {2804.1511, -2437.3279, 13.6297, 89.2193},
-    {2759.0200, -2561.1782, 13.6383, 1.1954}
-};
-
-stock MySQLConnect()
-{
-    new connecttime = GetTickCount();
-
-    MySQL_C1 = mysql_connect(MYSQL_HOST, MYSQL_USER, MYSQL_DB, MYSQL_PASS);
-    if(mysql_errno()) return print("-> Connect to database '"MYSQL_DB"' has not been established!");
-    else printf("-> Connect to database '"MYSQL_DB"' was successfully installed. (%d ms)", GetTickCount() - connecttime);
-
-	return true;
-}
 public OnGameModeInit()
 {
     new launchtime = GetTickCount();
-
-    MySQLConnect(); //try connect
+    MySQLConnect();
 
     if(mysql_errno())
-	{
-	    SendRconCommand("hostname "GAMEMODE_HOSTNAME" | *error*");
-	    SetGameModeText(""GAMEMODE_NAME" | *error*");
-
-		return MysqlErrorMessage(INVALID_PLAYER_ID);
-	}
+    {
+        SendRconCommand("hostname "GAMEMODE_HOSTNAME" | *error*");
+        SetGameModeText(""GAMEMODE_NAME" | *error*");
+        return MysqlErrorMessage(INVALID_PLAYER_ID);
+    }
     else
     {
-	    SendRconCommand("hostname "GAMEMODE_HOSTNAME"");
-	    SetGameModeText(""GAMEMODE_NAME"");
-
+        SendRconCommand("hostname "GAMEMODE_HOSTNAME"");
+        SetGameModeText(""GAMEMODE_NAME"");
         mysql_log(MYSQL_LOG_TYPE);
 
-	   	EnableStuntBonusForAll(0);
-	   	ShowPlayerMarkers(2);
-		DisableInteriorEnterExits();
+        EnableStuntBonusForAll(0);
+        ShowPlayerMarkers(2);
+        ShowNameTags(0);
+        DisableInteriorEnterExits();
 
-		CreatePickup(1239, 23, 1757.0731,-1943.8488,13.5688, -1); //Spawn FAQ Pickup
-		DynamicZone[zSpawnFAQ] = CreateDynamicSphere(1757.0731,-1943.8488,13.5688,0.8,0,0,-1); //Spawn FAQ Pickup
-		Create3DTextLabel("Íà÷àëüíàÿ èíôîðìàöèÿ", 0xFF9900FF, 1757.0731,-1943.8488,14.2, 25.0, 0);
-		Create3DTextLabel("_____________________", 0xFF9900FF, 1757.0731,-1943.8488,14.17, 25.0, 0);
-		
-		printf("-> Gamemode ("GAMEMODE_NAME") successfully launched! (%d ms)", GetTickCount() - launchtime);
-	}
-	return true;
-}
+        AddPlayerClass(0, 0.0, 0.0, 4.0, 0.0, -1, -1, -1, -1, -1, -1);
 
-public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
-{
-	return true;
-}
+        // Init bank system (load from DB)
+        LoadATMLocations();
+        LoadBankLocations();
 
-public OnPlayerEnterDynamicArea(playerid, areaid)
-{
-	if(areaid == DynamicZone[zSpawnFAQ]) return ShowPlayerDialog(playerid,dNull,DIALOG_STYLE_MSGBOX,"Íà÷àëüíàÿ èíôîðìàöèÿ","Íà÷àëüíàÿ èíôîðìàöèÿ îá âîçìîæíîñòÿõ èãðû..\n...\n...\n...","Çàêðûòü","");
-	return true;
+        // Load tweets module
+        LoadTweetsOnInit();
+
+        // WIB Day/Night Cycle — sync world time every 60 seconds
+        SetTimer("OnWIBTimeSync", 60000, true);
+        // Set initial time
+        new hour, minute, second;
+        gettime(hour, minute, second);
+        SetWorldTime(hour);
+
+        CreatePickup(1239, 23, 1757.0731,-1943.8488,13.5688, -1);
+        DynamicZone[zSpawnFAQ] = CreateDynamicSphere(1757.0731,-1943.8488,13.5688,0.8,0,0,-1);
+        Create3DTextLabel("Informasi Awal", 0xFF9900FF, 1757.0731,-1943.8488,14.2, 25.0, 0);
+        Create3DTextLabel("_____________________", 0xFF9900FF, 1757.0731,-1943.8488,14.17, 25.0, 0);
+
+        printf("-> Gamemode ("GAMEMODE_NAME") successfully launched! (%d ms)", GetTickCount() - launchtime);
+
+        // Load dynamic locations
+        LoadLocations();
+
+        // Load Mall Pelayanan from DB
+        LoadMallPelayanan();
+
+        // Load interiors from DB
+        LoadInteriors();
+
+        // Load SIM stations from DB
+        LoadSIMStations();
+
+        // Load Go Food lockers from DB
+        LoadGoFoodLockers();
+
+        // Hospital County General mapping (by Arnathz)
+        CreateHospitalMapping();
+
+        // Load factions from DB
+        LoadFactions();
+
+        // Load job system data
+        LoadTruckerCompanies();
+        LoadTruckerRoutes();
+        LoadFishMarkets();
+
+        // Fish price fluctuation every 30 minutes
+        SetTimer("OnFishPriceFluctuate", 1800000, true);
+
+        // Load properties from DB
+        LoadProperties();
+
+        // HT Radio global TextDraws
+        CreateHTRadioTextDraws();
+    }
+    return true;
 }
 
 public OnGameModeExit()
 {
-	return true;
+    return true;
 }
 
-public OnPlayerRequestClass(playerid, classid)
-{
-	return 1;
-}
+// ============================================================================
+// PLAYER CONNECT / DISCONNECT
+// ============================================================================
 
-stock PlayerClearChat(playerid, size) for(new s; s < size; s++) SendClientFormattedMessage(playerid, -1, " ");
-
-public OnPlayerCommandReceived(playerid, cmdtext[])
-{
-    if(!PlayerInfo[playerid][pLogged]) { SendClientFormattedMessage(playerid, -1,"* Íåîáõîäèìî àâòîðèçîâàòñÿ!"); return false; }
-
-	return true;
-}
-
-public OnPlayerCommandPerformed(playerid, cmdtext[], success)
-{
-	if(success == -1)
-	{
-		return SendClientFormattedMessage(playerid, -1, "Îøèáêà! Êîìàíäà íå íàéäåíà!");
-	}
-	printf("Èãðîê %s òîëüêî ÷òî èñïîëüçîâàë êîìàíäó \"%s\"", PlayerName(playerid), cmdtext);
-	return true;
-}
-
-public OnPlayerCommandText(playerid, cmdtext[]) return true;
-
-public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
-{
-	switch(dialogid)
-	{
-		case dRegister:
-		{
-		    if(!response) return SendClientFormattedMessage(playerid, -1, "Âû îòìåíèëè ðåãèñòðàöèþ."),PlayerKick(playerid);
-		    if(!strlen(inputtext) || strlen(inputtext) < 3 || strlen(inputtext) > MAX_PASSWORD_LEN)
-			{
-			    SendClientFormattedMessage(playerid, -1, "Äëèíà ïàðîëÿ äîëæíà áûòü îò 3 äî 36 ñèìâîëîâ! Ïîïðîáóéòå åùå ðàç.");
-			    return ShowPlayerDialog(playerid, dRegister, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Àêêàóíò {8B0000}íå çàðåãèñòðèðîâàí{FFFFFF}, ââåäèòå âàø ïàðîëü:","Äàëåå","Îòìåíà");
-	        }
-	        strmid(TempInfo[playerid][pRegPassword], inputtext, 0, strlen(inputtext), MAX_PASSWORD_LEN);
-	        ShowPlayerDialog(playerid, dRegisterEmail, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","Ââåäèòå âàøó ýëåêòðîííóþ ïî÷òó:","Äàëåå","Îòìåíà");
-			return true;
-		}
-		case dRegisterEmail:
-		{
-  			if(!response) return SendClientFormattedMessage(playerid, -1, "Âû îòìåíèëè ðåãèñòðàöèþ."),PlayerKick(playerid);
-  			if(strfind(inputtext, "lexjusto", true) != -1) return ShowPlayerDialog(playerid, dRegisterEmail, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Øóòêè øóòèøü?..Ñìåøíî..õà-õà..\n\nÂâåäèòå âàøó ýëåêòðîííóþ ïî÷òó:","Äàëåå","Îòìåíà");
-		    if(!strlen(inputtext) || strlen(inputtext) > MAX_EMAIL_LEN || strfind(inputtext, "@", true) == -1 || strfind(inputtext, ".", true) == -1)
-			{
-			    SendClientFormattedMessage(playerid, -1, "Âû ââåëè íåêêîðåêòíûé ýëåêòðîííûé àäðåñ, ïðèìåð - 'lexjusto@yandex.com' (ìàêñèìàëüíàÿ äëèíà - 64 ñèìâîëà)");
-			    return ShowPlayerDialog(playerid, dRegisterEmail, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Ââåäèòå âàøó ýëåêòðîííóþ ïî÷òó:","Äàëåå","Îòìåíà");
-	        }
-	        strmid(TempInfo[playerid][pRegEmail], inputtext, 0, strlen(inputtext), MAX_EMAIL_LEN);
-	        ShowPlayerDialog(playerid, dRegisterGender, DIALOG_STYLE_LIST, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Ïîë âàøåãî ïåðñîíàæà:\nÌóæñêîé\nÆåíñêèé","Âûáðàòü","Îòìåíà");
-			return true;
-		}
-		case dRegisterGender:
-		{
-		    if(!response) return SendClientFormattedMessage(playerid, -1, "Âû îòìåíèëè ðåãèñòðàöèþ."),PlayerKick(playerid);
-		    switch(listitem)
-		    {
-		        case 0: return ShowPlayerDialog(playerid, dRegisterGender, DIALOG_STYLE_LIST, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Ïîë âàøåãî ïåðñîíàæà:\nÌóæñêîé\nÆåíñêèé","Âûáðàòü","Îòìåíà");
-		        case 1: TempInfo[playerid][pRegGender] = 1;
-		        case 2: TempInfo[playerid][pRegEmail] = 2;
-		        default: TempInfo[playerid][pRegGender] = 1;
-		    }
-		    ShowPlayerDialog(playerid, dRegisterSkin, DIALOG_STYLE_LIST, "{FFFFFF}Ðåãèñòðàöèÿ","Skin ¹1\nSkin ¹2\nSkin ¹3\nSkin ¹4\nSkin ¹5","Âûáðàòü","Îòìåíà");
-		    return true;
-		}
-		case dRegisterSkin:
-		{
-		    if(!response) return SendClientFormattedMessage(playerid, -1, "Âû îòìåíèëè ðåãèñòðàöèþ."),PlayerKick(playerid);
-
-		    switch(listitem)
-		    {
-		        case 0..4: TempInfo[playerid][pRegSkin] = listitem+1;
-		        default: TempInfo[playerid][pRegSkin] = 1;
-		    }
-		    ShowPlayerDialog(playerid, dRegisterInvited, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Ââåäèòå íèê ÷åëîâåêà ïðèãëàñèâøåãî âàñ íà ñåðâåð (åñëè òàêîâîãî íåò - ïðîïóñòèòå äàííûé øàã):","Äàëåå","Ïðîïóñòèòü");
-
-			return true;
-	  	}
-		case dRegisterInvited:
-		{
-		    if(response)
-		    {
-			    if(strfind(inputtext, "lexjusto", true) != -1) return ShowPlayerDialog(playerid, dRegisterInvited, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Øóòêè øóòèøü?..Ñìåøíî..õà-õà..çàâÿçûâàé..\n\nÂâåäèòå íèê ÷åëîâåêà ïðèãëàñèâøåãî âàñ íà ñåðâåð (åñëè òàêîâîãî íåò - ïðîïóñòèòå äàííûé øàã):","Äàëåå","Ïðîïóñòèòü");
-			    if(!strlen(inputtext) || strlen(inputtext) > MAX_PLAYER_NAME)
-			    {
-			    	SendClientFormattedMessage(playerid, -1, "Âû ââåëè íåêêîðåêòíûé íèê ïðèãëàñèâøåãî âàñ èãðîêà, ïðèìåð - 'lexjusto'");
-				    return ShowPlayerDialog(playerid, dRegisterInvited, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Ââåäèòå íèê ÷åëîâåêà ïðèãëàñèâøåãî âàñ íà ñåðâåð (åñëè òàêîâîãî íåò - ïðîïóñòèòå äàííûé øàã):","Äàëåå","Ïðîïóñòèòü");
-			    }
-			    strmid(TempInfo[playerid][pRegInvited], inputtext, 0, strlen(inputtext), MAX_PLAYER_NAME);
-		    }
-		    if(!response) TempInfo[playerid][pRegInvited] = 0;
-			new regstr[512];
-			new reginv[MAX_PLAYER_NAME];
-			if(TempInfo[playerid][pRegInvited] == 0) reginv = "* Øàã ïðîïóùåí *";
-			else strmid(reginv, TempInfo[playerid][pRegInvited], 0, strlen(TempInfo[playerid][pRegInvited]), MAX_PLAYER_NAME);
-			format(regstr,sizeof(regstr),"\
-			{FFFFFF}Ïðîâåðüòå ïðàâèëüíîñòü ââåäåííûõ âàìè äàííûõ è ñäåëàéòå ñêðèíøîò, åñëè íóæíî.\n\n\
-			Èìÿ:\t\t%s\nÏàðîëü:\t%s\nE-Mail:\t\t%s\nÏîë:\t\t%s\nÑêèí:\t\t¹%d\nÐåôåðàë:\t%s",PlayerName(playerid),TempInfo[playerid][pRegPassword],TempInfo[playerid][pRegEmail],(TempInfo[playerid][pRegGender] == 1) ? ("Ìóæ÷èíà") : ("Æåíùèíà"), TempInfo[playerid][pRegSkin], reginv);
-		    ShowPlayerDialog(playerid, dRegisterEnd, DIALOG_STYLE_MSGBOX, "{FFFFFF}Ðåãèñòðàöèÿ",regstr,"Âåðíî","Ïîâòîð");
-		    return true;
-		}
-		case dRegisterEnd:
-		{
-			if(response) PlayerCreateAccount(playerid, TempInfo[playerid][pRegEmail], TempInfo[playerid][pRegPassword], TempInfo[playerid][pRegInvited], TempInfo[playerid][pRegGender], TempInfo[playerid][pRegSkin]);
-			if(!response)
-			{
-				PlayerClearChat(playerid,50);
-				SendClientFormattedMessage(playerid, -1, "Âû ðåøèëè ïðîéòè ðåãèñòðàöèþ ñ ñàìîãî íà÷àëà.");
-				return ShowPlayerDialog(playerid, dRegister, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Àêêàóíò {8B0000}íå çàðåãèñòðèðîâàí{FFFFFF}, ââåäèòå âàø ïàðîëü:","Äàëåå","Îòìåíà");
-			}
-
-			TempInfo[playerid][pRegPassword] = INVALID_PLAYER_DATA;
-			TempInfo[playerid][pRegEmail] = INVALID_PLAYER_DATA;
-			TempInfo[playerid][pRegGender] = INVALID_PLAYER_DATA;
-			TempInfo[playerid][pRegSkin] = INVALID_PLAYER_DATA;
-			TempInfo[playerid][pRegInvited] = INVALID_PLAYER_DATA;
-
-		    return true;
-  		}
-		case dLogin:
-		{
-		    if(!response) return SendClientFormattedMessage(playerid, -1, "Âû îòìåíèëè àâòîðèçàöèþ."),PlayerKick(playerid);
-		    if(!strlen(inputtext) || strlen(inputtext) < 3 || strlen(inputtext) > MAX_PASSWORD_LEN)
-			{
-			    SendClientFormattedMessage(playerid, -1, "Äëèíà ïàðîëÿ äîëæíà áûòü îò 3 äî 36 ñèìâîëîâ! Ïîïðîáóéòå åùå ðàç.");
-			    return ShowPlayerDialog(playerid, dLogin, DIALOG_STYLE_INPUT, "{FFFFFF}Àâòîðèçàöèÿ","{FFFFFF}Àêêàóíò {006400}çàðåãèñòðèðîâàí{FFFFFF}, ââåäèòå âàø ïàðîëü:","Äàëåå","Îòìåíà");
-		    }
-			mysql_format(MySQL_C1, query,sizeof(query), "SELECT * FROM `"TABLE_ACCOUNTS"` WHERE `name` = '%e' AND `password` = MD5(MD5(CONCAT(`regdate` + '%e'))) LIMIT 0,1", PlayerName(playerid), inputtext);
-	  		mysql_function_query(MySQL_C1, query, true, "PlayerLogin","d", playerid);
-
-	  		if(mysql_errno()) return MysqlErrorMessage(playerid);
-
-	  		return true;
-		}
-	}
-	return 1;
-}
-public OnPlayerSpawn(playerid)
-{
-	if(!PlayerInfo[playerid][pLogged]) return SendClientFormattedMessage(playerid,-1,"Íåîáõîäèìî àâòîðèçîâàòüñÿ!"),PlayerKick(playerid);
-
-	PlayerSpawn(playerid);
-
- 	SetPlayerSkin(playerid, PlayerInfo[playerid][pSkin]);
-    SetPlayerScore(playerid, PlayerInfo[playerid][pLevel]);
-
-	return true;
-}
-
-stock PlayerSpawn(playerid)
-{
-    if(!PlayerInfo[playerid][pLogged]) return SendClientFormattedMessage(playerid,-1,"Íåîáõîäèìî àâòîðèçîâàòüñÿ!"),PlayerKick(playerid);
-
-
-   	new randomspawn = random(sizeof(NewPlayerSpawns));
-	SetPlayerPos(playerid, NewPlayerSpawns[randomspawn][0], NewPlayerSpawns[randomspawn][1], NewPlayerSpawns[randomspawn][2]);
-    SetPlayerFacingAngle(playerid, NewPlayerSpawns[randomspawn][3]);
-
-	SetCameraBehindPlayer(playerid);
-	SetPlayerInterior(playerid, 0);
-	SetPlayerVirtualWorld(playerid, 0);
-	return true;
-}
-
-public OnPlayerUpdate(playerid)
-{
-    PlayerUpdateMoney(playerid);
-	return 1;
-}
-
-public OnPlayerDeath(playerid, killerid, reason)
-{
-	return true;
-}
-
-stock PlayerUpdateMoney(playerid)
-{
-	new money = GetPlayerMoney(playerid);
-	if(PlayerInfo[playerid][pMoney] > money)
-	{
-		ResetPlayerMoney(playerid);
-		GivePlayerMoney(playerid, PlayerInfo[playerid][pMoney]);
-	}
-	else if(PlayerInfo[playerid][pMoney] < money)
-	{
-		ResetPlayerMoney(playerid);
-		GivePlayerMoney(playerid, PlayerInfo[playerid][pMoney]);
-	}
-	return true;
-}
-
-stock MysqlErrorMessage(playerid)
-{
-    if(playerid == INVALID_PLAYER_ID) return printf("-> Error sending the query to the database! (Error Code: #%d)",mysql_errno());
-	else
-	{
- 		PlayerClearChat(playerid, 50);
-		new mysqlerror[MAX_CHATMESS_LEN];
-		format(mysqlerror,sizeof(mysqlerror),"Â äàííûé ìîìåíò ñåðâåð èñïûòûâàåò ïðîáëåìû ñ áàçîé äàííûõ. (Êîä îøèáêè: #%d)",mysql_errno());
-	    SendClientFormattedMessage(playerid, -1, mysqlerror);
-	    SendClientFormattedMessage(playerid, -1, "Ïîïðîáóéòå ñîâåðøèòü äåéñòâèå ïîéæå, ïî âîçìîæíîñòè ñîîáùèòå î ïðîáëåìå ïî àäðåñó - "SUPPORT_EMAIL"");
-		PlayerKick(playerid);
-
-		printf("-> Error sending the query to the database! (Error Code: #%d) | (Player: %s[%d])",mysql_errno(),PlayerName(playerid),playerid);
-	}
-	return true;
-}
 public OnPlayerConnect(playerid)
 {
-	ResetPlayerInfo(playerid);
+    ResetFlyData(playerid);
+    ResetPlayerInfo(playerid);
+    ResetInventoryTDs(playerid);
+    ResetPhoneTDs(playerid);
+    ResetWalletTDs(playerid);
+    GetPlayerName(playerid, PlayerInfo[playerid][pName], MAX_PLAYER_NAME);
 
-	GetPlayerName(playerid, PlayerInfo[playerid][pName], MAX_PLAYER_NAME);
+    // Reset phone call data
+    ResetCallData(playerid);
 
-	SetTimerEx("OnPlayerJoin", 150, false, "d", playerid);
+    // Reset faction data (runtime)
+    ResetPlayerFaction(playerid);
 
-	return true;
+    // Reset job data
+    ResetPlayerJobData(playerid);
+
+    // Reset property data
+    pCurrentProperty[playerid] = -1;
+    pOwnedPropertyID[playerid] = 0;
+
+    // Reset mall pelayanan tracking
+    pInsideMall[playerid] = -1;
+
+    // Reset HT Radio
+    ResetHTRadio(playerid);
+
+    // Hospital mapping removals (by Arnathz)
+    LoadHospitalRemoveBuildings(playerid);
+
+    // Remove breakable street objects (poles, lampposts, traffic lights, hydrants, etc.)
+    // They will be invisible — GTA:SA has no way to make map objects truly indestructible
+    // Common breakable pole/lamppost models
+    RemoveBuildingForPlayer(playerid, 615, 0.0, 0.0, 0.0, 6000.0);   // pole_streetlight01
+    RemoveBuildingForPlayer(playerid, 616, 0.0, 0.0, 0.0, 6000.0);   // pole_streetlight02
+    RemoveBuildingForPlayer(playerid, 617, 0.0, 0.0, 0.0, 6000.0);   // pole_streetlight03
+    RemoveBuildingForPlayer(playerid, 618, 0.0, 0.0, 0.0, 6000.0);   // pole_streetlight04
+    RemoveBuildingForPlayer(playerid, 619, 0.0, 0.0, 0.0, 6000.0);   // pole_streetlight05
+    RemoveBuildingForPlayer(playerid, 620, 0.0, 0.0, 0.0, 6000.0);   // pole_streetlight06
+    RemoveBuildingForPlayer(playerid, 625, 0.0, 0.0, 0.0, 6000.0);   // streetlamp1
+    RemoveBuildingForPlayer(playerid, 626, 0.0, 0.0, 0.0, 6000.0);   // streetlamp2
+    RemoveBuildingForPlayer(playerid, 627, 0.0, 0.0, 0.0, 6000.0);   // lamppost1
+    RemoveBuildingForPlayer(playerid, 628, 0.0, 0.0, 0.0, 6000.0);   // lamppost2
+    RemoveBuildingForPlayer(playerid, 629, 0.0, 0.0, 0.0, 6000.0);   // lamppost3
+    RemoveBuildingForPlayer(playerid, 631, 0.0, 0.0, 0.0, 6000.0);   // lamppost4
+    RemoveBuildingForPlayer(playerid, 632, 0.0, 0.0, 0.0, 6000.0);   // lamppost5
+
+    // Traffic lights
+    RemoveBuildingForPlayer(playerid, 1315, 0.0, 0.0, 0.0, 6000.0);  // trafficlight1
+    RemoveBuildingForPlayer(playerid, 1316, 0.0, 0.0, 0.0, 6000.0);  // trafficlight2
+    RemoveBuildingForPlayer(playerid, 1317, 0.0, 0.0, 0.0, 6000.0);  // trafficlight3
+    RemoveBuildingForPlayer(playerid, 1318, 0.0, 0.0, 0.0, 6000.0);  // trafficlight4
+
+    // Additional breakable lampposts and street lights
+    RemoveBuildingForPlayer(playerid, 1226, 0.0, 0.0, 0.0, 6000.0);  // lamppost_tall
+    RemoveBuildingForPlayer(playerid, 3745, 0.0, 0.0, 0.0, 6000.0);  // vgs_lamppost
+    RemoveBuildingForPlayer(playerid, 3637, 0.0, 0.0, 0.0, 6000.0);  // lamppost_la
+
+    // Fire hydrants & parking meters
+    RemoveBuildingForPlayer(playerid, 1285, 0.0, 0.0, 0.0, 6000.0);  // fire_hydrant
+    RemoveBuildingForPlayer(playerid, 1270, 0.0, 0.0, 0.0, 6000.0);  // parkingmeter1
+    RemoveBuildingForPlayer(playerid, 1271, 0.0, 0.0, 0.0, 6000.0);  // parkingmeter2
+
+    // Breakable barriers/fences
+    RemoveBuildingForPlayer(playerid, 978, 0.0, 0.0, 0.0, 6000.0);   // barrier_1
+    RemoveBuildingForPlayer(playerid, 979, 0.0, 0.0, 0.0, 6000.0);   // barrier_2
+    RemoveBuildingForPlayer(playerid, 980, 0.0, 0.0, 0.0, 6000.0);   // barrier_3
+    RemoveBuildingForPlayer(playerid, 981, 0.0, 0.0, 0.0, 6000.0);   // barrier_4
+    RemoveBuildingForPlayer(playerid, 3578, 0.0, 0.0, 0.0, 6000.0);  // barrier_toll
+
+    SetTimerEx("OnPlayerJoin", 150, false, "d", playerid);
+    return true;
 }
 
 publics: OnPlayerJoin(playerid)
 {
-	PlayerClearChat(playerid, 50);
+    PlayerClearChat(playerid, 50);
+    SendClientFormattedMessage(playerid, -1, "Selamat datang di server - {FF6600}Westfield RolePlay");
 
-	SendClientFormattedMessage(playerid, -1, "Äîáðî ïîæàëîâàòü íà ñåðâåð - LexJusto RolePlay");
+    // Check if player is banned
+    CheckPlayerBan(playerid);
 
     mysql_format(MySQL_C1, query, sizeof(query), "SELECT `name` FROM `"TABLE_ACCOUNTS"` WHERE `name` = '%e'", PlayerName(playerid));
-	mysql_function_query(MySQL_C1, query, true, "PlayerCheckRegister", "d", playerid);
+    mysql_function_query(MySQL_C1, query, true, "PlayerCheckRegister", "d", playerid);
 
-	if(mysql_errno()) return MysqlErrorMessage(playerid);
-
-	return true;
-}
-
-stock PlayerKick(i) return SetTimerEx("KickFix", 250, false, "d", i);
-publics: KickFix(i)
-{
-	SendClientFormattedMessage(i, -1, "Äëÿ âûõîäà èç èãðû èñïîëüçóéòå êîìàíäó /q(uit)");
-	Kick(i);
-	return true;
-}
-
-stock ResetPlayerInfo(playerid)
-{
-	//PlayerInfo
-	//register info
-	PlayerInfo[playerid][pLogged] = false;
-	PlayerInfo[playerid][pID] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pName] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pEmail] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pRegDate] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pRegIP] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pLastDate] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pLastIP] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pRegistered] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pInvited] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pGender] = INVALID_PLAYER_DATA;
-	//
-	PlayerInfo[playerid][pLevel] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pMoney] = INVALID_PLAYER_DATA;
-	PlayerInfo[playerid][pSkin] = INVALID_PLAYER_DATA;
-	//
-	//TempInfo
-	TempInfo[playerid][pRegPassword] = INVALID_PLAYER_DATA;
-	TempInfo[playerid][pRegEmail] = INVALID_PLAYER_DATA;
-	TempInfo[playerid][pRegGender] = INVALID_PLAYER_DATA;
-	TempInfo[playerid][pRegSkin] = INVALID_PLAYER_DATA;
-	TempInfo[playerid][pRegInvited] = INVALID_PLAYER_DATA;
-
-	return true;
+    if(mysql_errno()) return MysqlErrorMessage(playerid);
+    return true;
 }
 
 public OnPlayerDisconnect(playerid, reason)
 {
-	if(PlayerInfo[playerid][pLogged] == true) PlayerSaveData(playerid);
+    // Cancel fly mode if active (restore saved pos before saving)
+    if(FlyData[playerid][flyCamMode] == FLY_CAM_FLY)
+        StopFlyMode(playerid);
 
-	return true;
-}
-
-publics: PlayerCheckRegister(playerid)
-{
-	new rows, fields;
-	cache_get_data(rows, fields);
-
-	if(rows) ShowPlayerDialog(playerid, dLogin, DIALOG_STYLE_PASSWORD, "{FFFFFF}Àâòîðèçàöèÿ","{FFFFFF}Àêêàóíò {006400}çàðåãèñòðèðîâàí{FFFFFF}, ââåäèòå âàø ïàðîëü:","Äàëåå","Îòìåíà");
-	else ShowPlayerDialog(playerid, dRegister, DIALOG_STYLE_INPUT, "{FFFFFF}Ðåãèñòðàöèÿ","{FFFFFF}Àêêàóíò {8B0000}íå çàðåãèñòðèðîâàí{FFFFFF}, ââåäèòå âàø ïàðîëü:","Äàëåå","Îòìåíà");
- 	return true;
-}
-
-publics: PlayerCreateAccount(playerid, regemail[], regpassword[], reginvited[], reggender, regskin)
-{
-	new regip[MAX_IPADRESS_LEN];
-	GetPlayerIp(playerid, regip, sizeof(regip));
-	mysql_format(MySQL_C1, query, sizeof(query), "INSERT INTO `"TABLE_ACCOUNTS"` (`name`, `email`, `password`, `regdate`, `regip`, `registered`, `invited`, `gender`, `skin`) VALUES ('%e', '%e', MD5(MD5(CONCAT('%i' + '%e'))), '%i', '%e', '%i', '%e', '%i', '%i')",
-  	PlayerName(playerid), regemail, gettime(), regpassword, gettime(), regip, 0, reginvited, reggender, regskin);
-	mysql_function_query(MySQL_C1, query, false, "","");
-
-	if(mysql_errno()) return MysqlErrorMessage(playerid);
-
-	mysql_format(MySQL_C1, query,sizeof(query), "SELECT * FROM `"TABLE_ACCOUNTS"` WHERE `name` = '%e' LIMIT 0,1", PlayerName(playerid));
-	mysql_function_query(MySQL_C1, query, true, "PlayerLogin","d", playerid);
-
-	if(mysql_errno()) return MysqlErrorMessage(playerid);
-
-    return true;
-}
-
-publics: PlayerLogin(playerid)
-{
-    new rows, fields;
-	cache_get_data(rows, fields);
-	if(!rows)
-	{
-	    SendClientFormattedMessage(playerid, -1, "Âû ââåëè íå âåðíûé ïàðîëü! Ïîïðîáóéòå åù¸ ðàç.");
-		return ShowPlayerDialog(playerid, dLogin, DIALOG_STYLE_PASSWORD, "Àâòîðèçàöèÿ","Àêêàóíò çàðåãèñòðèðîâàí, ââåäèòå âàø ïàðîëü:","Äàëåå","Îòìåíà");
-	}
-	else PlayerLoadData(playerid);
-    return true;
-}
-
-stock PlayerLoadData(playerid)
-{
-	new rowid = 0;
-
-    //register info
-    PlayerInfo[playerid][pID] = cache_get_field_content_int(rowid, "id", MySQL_C1);
-    cache_get_field_content(rowid, "email", PlayerInfo[playerid][pEmail], MySQL_C1, MAX_EMAIL_LEN);
-    PlayerInfo[playerid][pRegDate] = cache_get_field_content_int(rowid, "regdate", MySQL_C1);
-    cache_get_field_content(rowid, "regip", PlayerInfo[playerid][pRegIP], MySQL_C1, MAX_IPADRESS_LEN);
-    PlayerInfo[playerid][pLastDate] = cache_get_field_content_int(rowid, "lastdate", MySQL_C1);
-    cache_get_field_content(rowid, "lastip", PlayerInfo[playerid][pLastIP], MySQL_C1, MAX_IPADRESS_LEN);
-    PlayerInfo[playerid][pRegistered] = cache_get_field_content_int(rowid, "registered", MySQL_C1);
-    cache_get_field_content(rowid, "invited", PlayerInfo[playerid][pInvited], MySQL_C1, MAX_PLAYER_NAME);
-    PlayerInfo[playerid][pGender] = cache_get_field_content_int(rowid, "gender", MySQL_C1);
-    //
-    PlayerInfo[playerid][pLevel] = cache_get_field_content_int(rowid, "level", MySQL_C1);
-    PlayerInfo[playerid][pMoney] = cache_get_field_content_int(rowid, "money", MySQL_C1);
-    PlayerInfo[playerid][pSkin] = cache_get_field_content_int(rowid, "skin", MySQL_C1);
-	//
-
-    if(PlayerInfo[playerid][pRegistered] == 0)
+    if(PlayerInfo[playerid][pLogged] == true)
     {
-        PlayerInfo[playerid][pLevel] = 1;
-        PlayerInfo[playerid][pMoney] = 250;
-        PlayerInfo[playerid][pRegistered] = 1;
+        // Save last position
+        new Float:x, Float:y, Float:z, Float:angle;
+        GetPlayerPos(playerid, x, y, z);
+        GetPlayerFacingAngle(playerid, angle);
+        PlayerInfo[playerid][pLastX] = x;
+        PlayerInfo[playerid][pLastY] = y;
+        PlayerInfo[playerid][pLastZ] = z;
+        PlayerInfo[playerid][pLastAngle] = angle;
+        PlayerInfo[playerid][pLastInterior] = GetPlayerInterior(playerid);
+        PlayerInfo[playerid][pLastVW] = GetPlayerVirtualWorld(playerid);
 
-   		mysql_format(MySQL_C1,query,sizeof(query),"UPDATE "TABLE_ACCOUNTS" SET `registered` = '%i', `level` = '%i', `money` = '%i' WHERE `name` = '%e'", PlayerInfo[playerid][pRegistered], PlayerInfo[playerid][pLevel], PlayerInfo[playerid][pMoney], PlayerName(playerid));
-		mysql_function_query(MySQL_C1, query, false, "", "");
+        // Kill death timer if active
+        if(PlayerInfo[playerid][pDeathTimer] != 0)
+        {
+            KillTimer(PlayerInfo[playerid][pDeathTimer]);
+            PlayerInfo[playerid][pDeathTimer] = 0;
+        }
 
-		if(mysql_errno()) return MysqlErrorMessage(playerid);
+        // Kill hunger/thirst timers
+        if(PlayerInfo[playerid][pHungerTimer] != 0)
+        {
+            KillTimer(PlayerInfo[playerid][pHungerTimer]);
+            PlayerInfo[playerid][pHungerTimer] = 0;
+        }
+        if(PlayerInfo[playerid][pThirstTimer] != 0)
+        {
+            KillTimer(PlayerInfo[playerid][pThirstTimer]);
+            PlayerInfo[playerid][pThirstTimer] = 0;
+        }
 
-  		SetPlayerHealth(playerid, 100);
-    	SendClientFormattedMessage(playerid, -1, "Ðåãèñòðàöèÿ èãðîâîãî àêêàóíòà óñïåøíî çàâåðøåíà!");
+        // Close inventory if open
+        CloseInventory(playerid);
+
+        // Stop GPS tracking if active (before ClosePhone)
+        if(PlayerInfo[playerid][pGPSActive]) StopGPSTracking(playerid);
+
+        // Close phone if open
+        ClosePhone(playerid);
+
+        // End phone call if active
+        HandleCallDisconnect(playerid);
+
+        // Close wallet if open
+        CloseWallet(playerid);
+
+        // Stop spectating if active
+        if(PlayerInfo[playerid][pSpecMode])
+        {
+            TogglePlayerSpectating(playerid, 0);
+            PlayerInfo[playerid][pSpecMode] = false;
+            PlayerInfo[playerid][pSpecTarget] = INVALID_PLAYER_ID;
+        }
+
+        // Kill jail timer if active
+        if(PlayerInfo[playerid][pJailTimer] != 0)
+        {
+            KillTimer(PlayerInfo[playerid][pJailTimer]);
+            PlayerInfo[playerid][pJailTimer] = 0;
+        }
+
+        // Destroy AME label if exists
+        if(PlayerInfo[playerid][pAMETimer] != 0)
+        {
+            KillTimer(PlayerInfo[playerid][pAMETimer]);
+            PlayerInfo[playerid][pAMETimer] = 0;
+        }
+        if(PlayerInfo[playerid][pAMELabel] != Text3D:INVALID_3DTEXT_ID)
+        {
+            Delete3DTextLabel(PlayerInfo[playerid][pAMELabel]);
+            PlayerInfo[playerid][pAMELabel] = Text3D:INVALID_3DTEXT_ID;
+        }
+
+        // Save faction data & end duty on disconnect
+        if(pFactionID[playerid] > 0)
+        {
+            EndDuty(playerid, false);
+            SavePlayerFactionData(playerid);
+        }
+
+        // Handle job disconnect (stop activity, save)
+        HandleJobDisconnect(playerid);
+
+        // Reset property data on disconnect
+        pCurrentProperty[playerid] = -1;
+
+        // Reset mall pelayanan + remove from queue
+        if(pInsideMall[playerid] >= 0)
+            pInsideMall[playerid] = -1;
+        RemoveFromKTPQueue(playerid);
+
+        // Kill GoFood actor timer if active
+        if(PlayerInfo[playerid][pGoFoodActorTimer] != 0)
+        {
+            KillTimer(PlayerInfo[playerid][pGoFoodActorTimer]);
+            PlayerInfo[playerid][pGoFoodActorTimer] = 0;
+        }
+
+        // Hide HT Radio UI
+        HideHTRadioUI(playerid);
+
+        // Destroy HUD
+        DestroyHungerThirstHUD(playerid);
+
+        PlayerSaveData(playerid);
+    }
+    return true;
+}
+
+public OnPlayerRequestClass(playerid, classid)
+{
+    return 1;
+}
+
+// ============================================================================
+// PLAYER SPAWN
+// ============================================================================
+
+public OnPlayerSpawn(playerid)
+{
+    if(!PlayerInfo[playerid][pLogged]) return SendClientFormattedMessage(playerid,-1,"Kamu harus login terlebih dahulu!"),PlayerKick(playerid);
+
+    // Skin is already set via SetSpawnInfo — do NOT call SetPlayerSkin here (causes freeze)
+    SetPlayerScore(playerid, PlayerInfo[playerid][pLevel]);
+    ResetPlayerMoney(playerid); // Hide default $ HUD, we use Rp TextDraw
+
+    // Spawn at last saved position (SetSpawnInfo already positions, but ensure interior/VW)
+    if(PlayerInfo[playerid][pLastX] != 0.0 || PlayerInfo[playerid][pLastY] != 0.0)
+    {
+        SetPlayerInterior(playerid, PlayerInfo[playerid][pLastInterior]);
+        SetPlayerVirtualWorld(playerid, PlayerInfo[playerid][pLastVW]);
+    }
+
+    SetCameraBehindPlayer(playerid);
+
+    // If player was dead/pingsan, restore death state
+    if(PlayerInfo[playerid][pIsDead])
+    {
+        SetPlayerDeathState(playerid);
     }
     else
     {
-        SetPlayerHealth(playerid, 100);
-        SendClientFormattedMessage(playerid, -1, "Âû óñïåøíî àâòîðèçîâàëèñü!");
+        // Ensure player is controllable after spawn (fixes class selection freeze)
+        TogglePlayerControllable(playerid, 1);
     }
 
-    PlayerInfo[playerid][pLogged] = true;
+    // Create hunger/thirst HUD and start timers
+    CreateHungerThirstHUD(playerid);
+    StartHungerThirstTimers(playerid);
 
-    SpawnPlayer(playerid);
-
-    new lastip[MAX_IPADRESS_LEN];
-    GetPlayerIp(playerid, lastip, sizeof(lastip));
-	mysql_format(MySQL_C1,query,sizeof(query),"UPDATE "TABLE_ACCOUNTS" SET `lastdate` = '%i', `lastip` = '%e', `logged` = '%i' WHERE `name` = '%e'",gettime(), lastip, PlayerInfo[playerid][pLogged], PlayerName(playerid));
-	mysql_function_query(MySQL_C1, query, false, "", "");
-
-	if(mysql_errno()) return MysqlErrorMessage(playerid);
+    // Notify new player about KTP
+    NotifyNewPlayerKTP(playerid);
 
     return true;
 }
 
-public OnPlayerText(playerid, text[])
+// ============================================================================
+// DEATH CALLBACK -> delegates to spawn module
+// ============================================================================
+
+public OnPlayerDeath(playerid, killerid, reason)
 {
-    new chattext[MAX_CHATMESS_LEN];
-    if(PlayerInfo[playerid][pLogged] == false) return SendClientFormattedMessage(playerid, -1, "Ïðåæäå ÷åì ïèñàòü ÷òî ëèáî â ÷àò, âàì íåîáõîäèìî àâòîðèçîâàòüñÿ!");
-
-	if(RolePlayChat)
-	{
-	 	if(strlen(text) < 1 || strlen(text) > MAX_CHATMESS_LEN) return SendClientFormattedMessage(playerid, -1,"Ñîîáùåíèå íå ñîîòâåòñòâóåò ðàçðåøåííîìó ðàçìåðó!");
-
-		format(chattext,sizeof(chattext),"- %s(%i): %s",PlayerName(playerid),playerid,text);
-		ProxDetector(20.0, playerid, chattext,COLOR_FADE1,COLOR_FADE2,COLOR_FADE3,COLOR_FADE4,COLOR_FADE5);
-		SetPlayerChatBubble(playerid, text, COLOR_WHITE, 20.0, 7000);
-		ApplyAnim(playerid, "PED", "IDLE_CHAT",4.1,0,1,1,1,1,1);
-		SetTimerEx("ClearAnim", 100*strlen(text), false, "d", playerid);
-		return false;
-	}
-	return true;
+    return HandlePlayerDeath(playerid, killerid, reason);
 }
 
-stock ApplyAnim(playerid,name[],anim[],Float:speed,p,p2,p3,p4,p5,p6 = 0)
-{
-	if(!IsPlayerInAnyVehicle(playerid)) ApplyAnimation(playerid,name,anim,speed,p,p2,p3,p4,p5,p6);
-	return true;
-}
-publics: ClearAnim(playerid) return ApplyAnimation(playerid, "CARRY", "crry_prtial",4.0,0,0,0,0,0,1);
+// ============================================================================
+// KEY STATE -> Revive system
+// ============================================================================
 
-stock ProxDetector(Float:radi, playerid, string[],col1,col2,col3,col4,col5)
+public OnPlayerKeyStateChange(playerid, newkeys, oldkeys)
 {
-    new Float:posx, Float:posy, Float:posz;
-    new Float:oldposx, Float:oldposy, Float:oldposz;
-    new Float:tempposx, Float:tempposy, Float:tempposz;
-    GetPlayerPos(playerid, oldposx, oldposy, oldposz);
-    for(new i = 0; i < MAX_PLAYERS; i++)
+    // KEY_SECONDARY_ATTACK (F) to enter/exit interiors, pickup go food, or revive
+    if((newkeys & KEY_SECONDARY_ATTACK) && !(oldkeys & KEY_SECONDARY_ATTACK))
     {
-        if(IsPlayerConnected(i))
+        if(!HandleMallKeyPress(playerid))
+            if(!HandleInteriorKeyPress(playerid))
+                if(!HandleGoFoodPickup(playerid))
+                    HandleReviveKey(playerid);
+    }
+
+    // KEY_YES (Y) — if LEFT ALT held -> wallet, else -> inventory
+    if((newkeys & KEY_YES) && !(oldkeys & KEY_YES))
+    {
+        new keys, ud, lr;
+        GetPlayerKeys(playerid, keys, ud, lr);
+        if(keys & KEY_WALK) // Left Alt held
+            HandleWalletKey(playerid, newkeys, oldkeys);
+        else
+            HandleInventoryKey(playerid);
+    }
+
+    // KEY_NO (N) to toggle phone
+    if((newkeys & KEY_NO) && !(oldkeys & KEY_NO))
+    {
+        HandlePhoneKey(playerid);
+    }
+    return true;
+}
+
+// ============================================================================
+// DYNAMIC AREA
+// ============================================================================
+
+public OnPlayerEnterDynamicArea(playerid, areaid)
+{
+    if(areaid == DynamicZone[zSpawnFAQ]) return ShowPlayerDialog(playerid,dNull,DIALOG_STYLE_MSGBOX,"Informasi Awal","Informasi awal mengenai fitur server..\n...\n...\n...","Tutup","");
+    return true;
+}
+
+// ============================================================================
+// COMMANDS HANDLER
+// ============================================================================
+
+public OnPlayerCommandReceived(playerid, cmdtext[])
+{
+    if(!PlayerInfo[playerid][pLogged]) { SendClientFormattedMessage(playerid, -1,"* Kamu harus login terlebih dahulu!"); return false; }
+    // Allow /heal even when dead (developer self-heal)
+    if(PlayerInfo[playerid][pIsDead] && strcmp(cmdtext, "/heal", true) != 0) { SendClientFormattedMessage(playerid, COLOR_RED,"* Kamu sedang pingsan!"); return false; }
+    return true;
+}
+
+public OnPlayerCommandPerformed(playerid, cmdtext[], success)
+{
+    if(success == -1)
+    {
+        return SendClientFormattedMessage(playerid, -1, "Error! Perintah tidak ditemukan!");
+    }
+    printf("Pemain %s baru saja menggunakan perintah \"%s\"", PlayerName(playerid), cmdtext);
+    return true;
+}
+
+public OnPlayerCommandText(playerid, cmdtext[]) return true;
+
+// ============================================================================
+// DIALOG RESPONSE
+// ============================================================================
+
+public OnDialogResponse(playerid, dialogid, response, listitem, inputtext[])
+{
+    switch(dialogid)
+    {
+        case dRegister:
         {
-            GetPlayerPos(i, posx, posy, posz);
-            tempposx = (oldposx -posx);
-            tempposy = (oldposy -posy);
-            tempposz = (oldposz -posz);
-            if(GetPlayerVirtualWorld(playerid) == GetPlayerVirtualWorld(i))
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Kamu membatalkan registrasi."),PlayerKick(playerid);
+            if(!strlen(inputtext) || strlen(inputtext) < 3 || strlen(inputtext) > MAX_PASSWORD_LEN)
             {
-                if (((tempposx < radi/16) && (tempposx > -radi/16)) && ((tempposy < radi/16) && (tempposy > -radi/16)) && ((tempposz < radi/16) && (tempposz > -radi/16))) SendClientMessage(i, col1, string);
-                else if (((tempposx < radi/8) && (tempposx > -radi/8)) && ((tempposy < radi/8) && (tempposy > -radi/8)) && ((tempposz < radi/8) && (tempposz > -radi/8)))SendClientMessage(i, col2, string);
-                else if (((tempposx < radi/4) && (tempposx > -radi/4)) && ((tempposy < radi/4) && (tempposy > -radi/4)) && ((tempposz < radi/4) && (tempposz > -radi/4)))SendClientMessage(i, col3, string);
-                else if (((tempposx < radi/2) && (tempposx > -radi/2)) && ((tempposy < radi/2) && (tempposy > -radi/2)) && ((tempposz < radi/2) && (tempposz > -radi/2)))SendClientMessage(i, col4, string);
-                else if (((tempposx < radi) && (tempposx > -radi)) && ((tempposy < radi) && (tempposy > -radi)) && ((tempposz < radi) && (tempposz > -radi)))SendClientMessage(i, col5, string);
+                SendClientFormattedMessage(playerid, -1, "Panjang password harus antara 3 hingga 36 karakter!");
+                return ShowPlayerDialog(playerid, dRegister, DIALOG_STYLE_PASSWORD, "{FFFFFF}Registrasi","{FFFFFF}Akun {8B0000}belum terdaftar{FFFFFF}, masukkan password kamu:","Lanjut","Batal");
+            }
+            strmid(TempInfo[playerid][pRegPassword], inputtext, 0, strlen(inputtext), MAX_PASSWORD_LEN);
+            ShowPlayerDialog(playerid, dRegICName, DIALOG_STYLE_INPUT, "{FFFFFF}Registrasi - Nama IC","{FFFFFF}Masukkan nama depan karakter kamu (In-Character):","Lanjut","Batal");
+            return true;
+        }
+        case dRegICName:
+        {
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Kamu membatalkan registrasi."),PlayerKick(playerid);
+            if(!strlen(inputtext) || strlen(inputtext) < 2 || strlen(inputtext) > MAX_IC_NAME_LEN)
+            {
+                SendClientFormattedMessage(playerid, -1, "Nama IC harus 2-32 karakter!");
+                return ShowPlayerDialog(playerid, dRegICName, DIALOG_STYLE_INPUT, "{FFFFFF}Registrasi - Nama IC","{FFFFFF}Masukkan nama depan karakter kamu (In-Character):","Lanjut","Batal");
+            }
+            strmid(TempInfo[playerid][pRegICName], inputtext, 0, strlen(inputtext), MAX_IC_NAME_LEN);
+            ShowPlayerDialog(playerid, dRegICAge, DIALOG_STYLE_INPUT, "{FFFFFF}Registrasi - Umur IC","{FFFFFF}Masukkan umur karakter kamu (18 - 24):","Lanjut","Batal");
+            return true;
+        }
+        case dRegICAge:
+        {
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Kamu membatalkan registrasi."),PlayerKick(playerid);
+            new age = strval(inputtext);
+            if(age < 18 || age > 24)
+            {
+                SendClientFormattedMessage(playerid, -1, "Umur harus antara 18 - 24 tahun!");
+                return ShowPlayerDialog(playerid, dRegICAge, DIALOG_STYLE_INPUT, "{FFFFFF}Registrasi - Umur IC","{FFFFFF}Masukkan umur karakter kamu (18 - 24):","Lanjut","Batal");
+            }
+            TempInfo[playerid][pRegICAge] = age;
+            ShowPlayerDialog(playerid, dRegGender, DIALOG_STYLE_LIST, "{FFFFFF}Registrasi - Jenis Kelamin","Laki-laki\nPerempuan","Pilih","Batal");
+            return true;
+        }
+        case dRegGender:
+        {
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Kamu membatalkan registrasi."),PlayerKick(playerid);
+            switch(listitem)
+            {
+                case 0: TempInfo[playerid][pRegGender] = 1;
+                case 1: TempInfo[playerid][pRegGender] = 2;
+                default: TempInfo[playerid][pRegGender] = 1;
+            }
+            if(TempInfo[playerid][pRegGender] == 1) ShowMaleSkinDialog(playerid);
+            else ShowFemaleSkinDialog(playerid);
+            return true;
+        }
+        case dRegSkinMale:
+        {
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Kamu membatalkan registrasi."),PlayerKick(playerid);
+            if(listitem >= 0 && listitem < sizeof(MaleSkins))
+                TempInfo[playerid][pRegSkin] = MaleSkins[listitem];
+            else
+                TempInfo[playerid][pRegSkin] = MaleSkins[0];
+            ShowCityDialog(playerid);
+            return true;
+        }
+        case dRegSkinFemale:
+        {
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Kamu membatalkan registrasi."),PlayerKick(playerid);
+            if(listitem >= 0 && listitem < sizeof(FemaleSkins))
+                TempInfo[playerid][pRegSkin] = FemaleSkins[listitem];
+            else
+                TempInfo[playerid][pRegSkin] = FemaleSkins[0];
+            ShowCityDialog(playerid);
+            return true;
+        }
+        case dRegCity:
+        {
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Kamu membatalkan registrasi."),PlayerKick(playerid);
+            switch(listitem)
+            {
+                case 0: TempInfo[playerid][pRegCity] = CITY_MEKAR_PURA;
+                case 1: TempInfo[playerid][pRegCity] = CITY_MADYA_RAYA;
+                case 2: TempInfo[playerid][pRegCity] = CITY_MOJOSONO;
+                default: TempInfo[playerid][pRegCity] = CITY_MEKAR_PURA;
+            }
+            ShowSpawnLocationDialog(playerid);
+            return true;
+        }
+        case dRegSpawn:
+        {
+            if(!response) { ShowCityDialog(playerid); return true; }
+            switch(listitem)
+            {
+                case 0: TempInfo[playerid][pRegSpawn] = SPAWN_TERMINAL;
+                case 1: TempInfo[playerid][pRegSpawn] = SPAWN_BANDARA;
+                case 2: TempInfo[playerid][pRegSpawn] = SPAWN_STASIUN;
+                default: TempInfo[playerid][pRegSpawn] = SPAWN_TERMINAL;
+            }
+            PlayerCreateAccount(playerid);
+            return true;
+        }
+        case dLogin:
+        {
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Kamu membatalkan login."),PlayerKick(playerid);
+            if(!strlen(inputtext) || strlen(inputtext) < 3 || strlen(inputtext) > MAX_PASSWORD_LEN)
+            {
+                SendClientFormattedMessage(playerid, -1, "Panjang password harus antara 3 hingga 36 karakter!");
+                return ShowPlayerDialog(playerid, dLogin, DIALOG_STYLE_PASSWORD, "{FFFFFF}Login","{FFFFFF}Akun {006400}sudah terdaftar{FFFFFF}, masukkan password kamu:","Lanjut","Batal");
+            }
+            mysql_format(MySQL_C1, query, sizeof(query), "SELECT * FROM `"TABLE_ACCOUNTS"` WHERE `name` = '%e' AND `password` = MD5('%e') LIMIT 0,1", PlayerName(playerid), inputtext);
+            mysql_function_query(MySQL_C1, query, true, "PlayerLogin", "d", playerid);
+
+            if(mysql_errno()) return MysqlErrorMessage(playerid);
+            return true;
+        }
+
+        // ---- Phone: WhatsApp (text input dialogs only) ----
+        case DIALOG_PHONE_WA_SEND: return HandleWASendResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_WA_ADDCONTACT: return HandleAddContactResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_WA_ADDNUM: return HandleAddByNumberResponse(playerid, response, inputtext);
+
+        // ---- Phone: Twitter ----
+        case DIALOG_PHONE_TW_REG_USER: return HandleTWRegUserResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_TW_REG_PASS: return HandleTWRegPassResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_TW_LOGIN_USER: return HandleTWLoginUserResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_TW_LOGIN_PASS: return HandleTWLoginPassResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_TW_COMPOSE: return HandleTwitterComposeResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_TW_COMMENT: return HandleTWCommentResponse(playerid, response, inputtext);
+
+        // ---- Phone: Notepad ----
+        case DIALOG_PHONE_NOTEPAD_TITLE: return HandleNotepadTitleResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_NOTEPAD_BODY: return HandleNotepadBodyResponse(playerid, response, inputtext);
+
+        // ---- Phone: Marketplace (price input only) ----
+        case DIALOG_PHONE_MARKET_PRICE: return HandleMarketPriceResponse(playerid, response, inputtext);
+
+        // ---- Go Food ----
+        case DIALOG_GOFOOD_CONFIRM: return HandleGoFoodConfirmDialog(playerid, response);
+        case DIALOG_GOFOOD_CODE: return HandleGoFoodCodeDialog(playerid, response, inputtext);
+
+        // ---- Phone: M-Banking (amount/transfer input only) ----
+        case DIALOG_PHONE_MBANK_DEPOSIT: return HandleMBankDepositResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_MBANK_WITHDRAW: return HandleMBankWithdrawResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_MBANK_TRANSFER: return HandleMBankTransferResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_MBANK_TRAMT: return HandleMBankTransferAmtResponse(playerid, response, inputtext);
+        case DIALOG_PHONE_MBANK_KUOTA: return HandleMBankKuotaResponse(playerid, response, listitem);
+        case DIALOG_PHONE_MBANK_HISTORY:
+        {
+            // History shown as dialog, return to M-Bank menu
+            if(PlayerInfo[playerid][pPhoneOpen]) { OpenPhoneMBank(playerid); SelectTextDraw(playerid, PHONE_COLOR_ACCENT); }
+            return 1;
+        }
+
+        // ---- ATM / Bank ----
+        case DIALOG_BANK_MENU: return HandleATMMenuResponse(playerid, response, listitem);
+        case DIALOG_BANK_DEPOSIT: return HandleATMDepositResponse(playerid, response, inputtext);
+        case DIALOG_BANK_WITHDRAW: return HandleATMWithdrawResponse(playerid, response, inputtext);
+        case DIALOG_BANK_TRANSFER: return HandleATMTransferResponse(playerid, response, inputtext);
+        case DIALOG_BANK_TRANSFER_AMT: return HandleATMTransferAmtResponse(playerid, response, inputtext);
+        case DIALOG_BANK_HISTORY: { return true; } // just close
+        case DIALOG_BANK_CREATE: return HandleBankCreateResponse(playerid, response);
+
+        // ---- Inventory: Give item player list ----
+        case DIALOG_INV_GIVE_LIST:
+        {
+            if(!response) return SendClientFormattedMessage(playerid, -1, "Batal memberikan item.");
+            return ProcessGiveItem(playerid, listitem);
+        }
+
+        // ---- Wallet: Show card to player list ----
+        case DIALOG_WALLET_SHOW_LIST: return HandleWalletShowResponse(playerid, response, listitem);
+        case DIALOG_WALLET_KTP_VIEW, DIALOG_WALLET_BANK_VIEW, DIALOG_WALLET_SIM_VIEW: return 1; // just close
+    }
+
+    // Location dialogs (handled outside switch)
+    if(HandleLocationDialogs(playerid, dialogid, response, listitem, inputtext)) return 1;
+
+    // KTP service dialogs
+    if(HandleKTPDialogs(playerid, dialogid, response, listitem, inputtext)) return 1;
+
+    // SIM service dialogs
+    if(HandleSIMDialogs(playerid, dialogid, response, listitem, inputtext)) return 1;
+
+    // Job dialogs
+    if(HandleJobDialogs(playerid, dialogid, response, listitem)) return 1;
+
+    // Property dialogs
+    if(HandlePropertyDialogs(playerid, dialogid, response, listitem, inputtext)) return 1;
+
+    return 1;
+}
+
+// ============================================================================
+// PLAYER UPDATE
+// ============================================================================
+
+public OnPlayerUpdate(playerid)
+{
+    // Fly mode intercept (skips normal processing while flying)
+    if(FlyData[playerid][flyCamMode] == FLY_CAM_FLY)
+        return ProcessFlyMode(playerid);
+
+    PlayerUpdateMoney(playerid);
+
+    // Sprint restriction when thirst <= 20%
+    if(PlayerInfo[playerid][pLogged] && !PlayerInfo[playerid][pIsDead] && PlayerInfo[playerid][pThirst] <= THIRST_CANT_RUN)
+    {
+        if(!IsPlayerInAnyVehicle(playerid))
+        {
+            new keys, ud, lr;
+            GetPlayerKeys(playerid, keys, ud, lr);
+            if(keys & KEY_SPRINT) // only block sprinting, allow normal walk/jog
+            {
+                new Float:vx, Float:vy, Float:vz;
+                GetPlayerVelocity(playerid, vx, vy, vz);
+                new Float:speed = floatsqroot(vx*vx + vy*vy);
+                if(speed > 0.035) // above jog speed
+                {
+                    new Float:factor = 0.035 / speed;
+                    SetPlayerVelocity(playerid, vx * factor, vy * factor, vz);
+                }
             }
         }
     }
     return 1;
 }
 
-stock PlayerSaveData(playerid)
+// ============================================================================
+// CHECKPOINT
+// ============================================================================
+
+public OnPlayerEnterCheckpoint(playerid)
 {
-    PlayerInfo[playerid][pLogged] = false;
-
-  	mysql_format(MySQL_C1, query, sizeof(query),"UPDATE `"TABLE_ACCOUNTS"` SET \
-  	`logged` = '%d', \
-	`level` = '%d', \
-	`money` = '%d', \
-	`skin` = '%d' \
-	WHERE `name` = '%e'",
-	PlayerInfo[playerid][pLogged],
-	PlayerInfo[playerid][pLevel],
-	PlayerInfo[playerid][pMoney],
-	PlayerInfo[playerid][pSkin],
-	PlayerInfo[playerid][pName]
-	);
-	mysql_tquery(MySQL_C1, query, "", "");
-
-	if(mysql_errno()) return MysqlErrorMessage(playerid);
-
-	return true;
+    if(PlayerInfo[playerid][pGPSActive])
+    {
+        HandleGPSCheckpointReached(playerid);
+        return 1;
+    }
+    // Job checkpoints (trucker, bus)
+    if(HandleJobCheckpoint(playerid)) return 1;
+    return 1;
 }
 
-SendClientFormattedMessage(playerid, color, fstring[], {Float, _}:...)
+// ============================================================================
+// WIB TIME SYNC
+// ============================================================================
+
+publics: OnWIBTimeSync()
 {
-    static const
-        STATIC_ARGS = 3;
-    new
-        n = (numargs() - STATIC_ARGS) * BYTES_PER_CELL;
-    if (n)
-    {
-        new
-            message[144],
-            arg_start,
-            arg_end;
-        #emit CONST.alt        fstring
-        #emit LCTRL          5
-        #emit ADD
-        #emit STOR.S.pri        arg_start
-
-        #emit LOAD.S.alt        n
-        #emit ADD
-        #emit STOR.S.pri        arg_end
-        do
-        {
-            #emit LOAD.I
-            #emit PUSH.pri
-            arg_end -= BYTES_PER_CELL;
-            #emit LOAD.S.pri      arg_end
-        }
-        while (arg_end > arg_start);
-
-        #emit PUSH.S          fstring
-        #emit PUSH.C          128
-        #emit PUSH.ADR         message
-
-        n += BYTES_PER_CELL * 3;
-        #emit PUSH.S          n
-        #emit SYSREQ.C         format
-
-        n += BYTES_PER_CELL;
-        #emit LCTRL          4
-        #emit LOAD.S.alt        n
-        #emit ADD
-        #emit SCTRL          4
-
-        return SendClientMessage(playerid, color, message);
-    }
-    else
-    {
-        return SendClientMessage(playerid, color, fstring);
-    }
+    new hour, minute, second;
+    gettime(hour, minute, second);
+    SetWorldTime(hour);
+    return 1;
 }
 
-//COMMAND`S
-COMMAND:mymenu(playerid, params[])
+// ============================================================================
+// CHAT
+// ============================================================================
+
+// TextDraw click callbacks for inventory
+public OnPlayerClickPlayerTextDraw(playerid, PlayerText:playertextid)
 {
-    SendClientFormattedMessage(playerid, -1,"Òåñòîâàÿ êîìàíäà.");
+    if(HandleInventoryClick(playerid, playertextid)) return 1;
+    if(HandlePhoneClick(playerid, playertextid)) return 1;
+    if(HandleWalletClick(playerid, playertextid)) return 1;
+    return 0;
+}
+
+public OnPlayerClickTextDraw(playerid, Text:clickedid)
+{
+    // ESC pressed while SelectTextDraw is active
+    if(clickedid == Text:INVALID_TEXT_DRAW)
+    {
+        HandlePhoneEsc(playerid);
+        HandleInventoryEsc(playerid);
+        HandleWalletEsc(playerid);
+        return 1;
+    }
+    return 0;
+}
+
+public OnPlayerText(playerid, text[])
+{
+    if(!PlayerInfo[playerid][pLogged]) return SendClientFormattedMessage(playerid, -1, "Kamu harus login terlebih dahulu!"), false;
+    if(PlayerInfo[playerid][pIsDead]) return SendClientFormattedMessage(playerid, COLOR_RED, "Kamu sedang pingsan, tidak bisa bicara!"), false;
+    if(PlayerInfo[playerid][pMuted]) return SendClientFormattedMessage(playerid, COLOR_RED, "Kamu sedang di-mute! Tidak bisa berbicara."), false;
+
+    // Phone call intercept — if in active call, route chat to phone
+    if(HandleCallChat(playerid, text)) return false;
+
+    new chattext[MAX_CHATMESS_LEN];
+    if(RolePlayChat)
+    {
+        if(strlen(text) < 1 || strlen(text) > MAX_CHATMESS_LEN) return SendClientFormattedMessage(playerid, -1,"Pesan tidak sesuai panjang yang diizinkan!"), false;
+
+        format(chattext,sizeof(chattext),"%s berkata: %s",PlayerInfo[playerid][pICName],text);
+        ProxDetector(20.0, playerid, chattext,COLOR_FADE1,COLOR_FADE2,COLOR_FADE3,COLOR_FADE4,COLOR_FADE5);
+        SetPlayerChatBubble(playerid, text, COLOR_WHITE, 20.0, 7000);
+        ApplyAnim(playerid, "PED", "IDLE_CHAT",4.1,0,1,1,1,1,1);
+        SetTimerEx("ClearAnim", 100*strlen(text), false, "d", playerid);
+        return false;
+    }
     return true;
 }
 

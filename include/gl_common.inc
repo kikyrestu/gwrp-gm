@@ -57,10 +57,15 @@ stock LoadStaticVehiclesFromFile(const filename[])
 
   		index = token_by_delim(line,var_from_line,';',index+1);
   		Color2 = strval(var_from_line);
-
-  		//printf("%d,%d,%f,%f,%f,%f,%d,%d",total_vehicles_from_files+vehicles_loaded+1,vehicletype,SpawnX,SpawnY,SpawnZ,SpawnRot,Color1,Color2);
-
-		AddStaticVehicleEx(vehicletype,SpawnX,SpawnY,SpawnZ,SpawnRot,Color1,Color2,(30*60)); // respawn 30 minutes
+  		
+  		//printf("%d,%.2f,%.2f,%.2f,%.4f,%d,%d",vehicletype,SpawnX,SpawnY,SpawnZ,SpawnRot,Color1,Color2);
+  		
+  		AddStaticVehicleEx(vehicletype,SpawnX,SpawnY,SpawnZ,SpawnRot,Color1,Color2,(30*60)); // respawn 30 minutes
+		
+		/*new numplate_test[32+1];
+		format(numplate_test,32,"GRLC{44AA33}%d",vid);
+		SetVehicleNumberPlate(vid, numplate_test);*/
+		
 		vehicles_loaded++;
 	}
 
@@ -152,6 +157,85 @@ stock IsKeyJustDown(key, newkeys, oldkeys)
 {
 	if((newkeys & key) && !(oldkeys & key)) return 1;
 	return 0;
+}
+
+//----------------------------------------------------------
+
+stock PlaySoundForAll(soundid, Float:x, Float:y, Float:z)
+{
+	for(new i=0; i<MAX_PLAYERS; i++)
+	{
+	    if(IsPlayerConnected(i))
+	    {
+		    PlayerPlaySound(i, soundid, x, y, z);
+	    }
+	}
+}
+
+//----------------------------------------------------------
+
+stock PlaySoundForPlayersInRange(soundid, Float:range, Float:x, Float:y, Float:z)
+{
+	for(new i=0; i<MAX_PLAYERS; i++)
+	{
+	    if(IsPlayerConnected(i) && IsPlayerInRangeOfPoint(i,range,x,y,z))
+	    {
+		    PlayerPlaySound(i, soundid, x, y, z);
+	    }
+	}
+}
+
+//----------------------------------------------------------
+
+#define RETURN_USER_FAILURE -1
+#define RETURN_USER_MULTIPLE -2
+
+stock ReturnUser(text[])
+{
+	new pos = 0;
+	new userid = RETURN_USER_FAILURE;
+		
+	while(text[pos] < 0x21) { // Strip out leading spaces
+		if(text[pos] == 0) return RETURN_USER_FAILURE; // No passed text
+		pos++;
+	}
+		
+	if(isNumeric(text[pos])) { // Check whole passed string
+		userid = strval(text[pos]);
+		if(userid >=0 && userid < MAX_PLAYERS)
+		{
+			if(IsPlayerConnected(userid)) return userid;
+			return RETURN_USER_FAILURE;
+		}
+	}
+	
+	// They entered [part of] a name or the id search failed (check names just incase)
+	new len = strlen(text[pos]);
+	new count = 0;
+	new name[MAX_PLAYER_NAME+1];
+	
+	for(new i = 0; i < MAX_PLAYERS; i++)
+	{
+		if(IsPlayerConnected(i))
+		{
+			GetPlayerName(i, name, sizeof(name));
+			if(strcmp(name, text[pos], true, len) == 0) // Check segment of name
+			{
+				if(len == strlen(name)) { // Exact match
+					return i;
+				}
+				else { // Partial match
+					count++;
+					userid = i;
+				}
+			}
+		}
+	}
+	
+	if(!count) return RETURN_USER_FAILURE;
+	if(count > 1) return RETURN_USER_MULTIPLE;
+	
+	return userid;
 }
 
 //----------------------------------------------------------

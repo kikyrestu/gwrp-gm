@@ -1,0 +1,75 @@
+# ============================================================
+# GWRP Gamemode - .gitignore
+# ============================================================
+
+# Compiled AMX files (can be recompiled from .pwn source)
+gamemodes/*.amx
+filterscripts/*.amx
+
+# Server binaries & runtime
+omp-server.exe
+omp_minidump.dmp
+libmysql.dll
+announce
+announce.exe
+samp-npc
+samp-npc.exe
+samp-server.exe
+samp03svr
+
+# open.mp components & binaries
+components/
+bin/
+
+# Compiler (can be downloaded separately)
+compiler/
+
+# Pawno IDE (not needed for repo)
+pawno/libpawnc.dll
+pawno/pawnc.dll
+pawno/pawncc.exe
+pawno/pawno.exe
+pawno/pawn.ico
+pawno/settings.ini
+pawno/new.pwn
+
+# Plugin binaries (platform-specific, download separately)
+plugins/*.dll
+plugins/*.so
+plugins/*.pdb
+
+# sscanf data folder
+sscanf/
+
+# Log files
+*.log
+log.txt
+mysql_log.txt
+server_log.txt
+
+# Runtime data
+bans.json
+scriptfiles/tstudio/
+
+# Temp/debug files
+*.dmp
+mall_db_check.txt
+hospitalmapping.txt
+Radio Textdraw.txt
+
+# Backup files
+*.bak
+*.bak2
+
+# IDE / Editor
+.vscode/
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Misc images (assets not needed in repo)
+# Uncomment if you want to exclude them:
+# *.webp
+# *.png

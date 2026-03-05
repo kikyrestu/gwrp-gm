@@ -1,0 +1,7 @@
+AddSimpleModel -1 1337 19800 phoneframe phoneframe
+AddSimpleModel -1 1337 19801 phonewp phonewp
+AddSimpleModel -1 1337 19802 iconwa iconwa
+AddSimpleModel -1 1337 19803 icontw icontw
+AddSimpleModel -1 400 30000 lapdpd2 lapdpd2
+AddSimpleModel -1 400 30001 lvpdpc2 lvpdpc2
+AddSimpleModel -1 1337 30002 wallzzz wallzzz
